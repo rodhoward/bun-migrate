@@ -7,6 +7,7 @@ Follows [postgres-migrations](https://www.npmjs.com/package/postgres-migrations)
 1. No rollback. Simply roll forward! In production this is a safer more streamlined approach when compared with always developing a _working_ rollback when its basically never used.
 2. Migrations are sequenced by a simple integer id at the start of the migration's file name. Id's can't be skipped or repeated. Highlights the pitfalls of using time stamps when merging different branches.
 3. A transaction is created for each migration if you are creating indexes that can't be run in a transaction you can turn them off. By including `-- postgres-migrations disable-transaction` at the top of the file.
+4. Using a file hash to ensure that migrations aren't updated. In development you can simply delete the row from the migration table to run again.
 
 ## Options
 
@@ -21,8 +22,7 @@ In action:
 
 ## Limitations
 
-This is a very basic implementation atm. There are probably a ton of things that haven't been considered. Some of which I have but having included yet.
+This is a very basic implementation atm. There are probably a ton of things that haven't been considered. Short list of things that would be nice to have in the future:
 
 1. Javascript migrations.. postgres-migrations allows for executing javascript atm I haven't implemented this.. although it would be nice. ATM each migration must be .sql.
 2. I haven't really considered concurrency.. it should work though because the id insert will fail and rollback the whole transaction.
-3. File hash checks for existing migrations.

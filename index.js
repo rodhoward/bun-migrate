@@ -24,7 +24,7 @@ const getLastExecuted = async (bunSql) => {
 
 const up = async ({ id, name, content, bunSql }) => {
   const hash = createHash(content);
-  if (content.match(/^\s*--\s*postgres-migrations disable-transaction/)) {
+  if (content.match(/^\s*--\s*postgres-migrations disable-transaction.*/)) {
     await bunSql.unsafe(content); // Use unsafe for raw SQL
     // Record it
     await bunSql`INSERT INTO migrations (id, name, hash) VALUES (${id}, ${name}, ${hash})`;

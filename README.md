@@ -25,3 +25,4 @@ This is a very basic implementation atm. There are probably a ton of things that
 
 1. Javascript migrations.. postgres-migrations allows for executing javascript atm I haven't implemented this.. although it would be nice. ATM each migration must be .sql.
 2. I haven't really considered concurrency.. it should work though because the id insert will fail and rollback the whole transaction.
+3. File hash checks for existing migrations.

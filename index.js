@@ -1,10 +1,17 @@
-import { sql } from "bun";
+import { SQL } from "bun";
+
+const createHash = (content) => {
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(content);
+  return hasher.digest("hex"); // Returns hex string directly
+};
 
 const ensureTable = async (bunSql) => {
   await bunSql`
       CREATE TABLE IF NOT EXISTS migrations (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
+        hash VARCHAR(64) NOT NULL,
         executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
@@ -16,19 +23,29 @@ const getLastExecuted = async (bunSql) => {
 };
 
 const up = async ({ id, name, content, bunSql }) => {
+  const hash = createHash(content);
   if (content.match(/^\s*--\s*postgres-migrations disable-transaction/)) {
-    await sql.unsafe(content); // Use unsafe for raw SQL
+    await bunSql.unsafe(content); // Use unsafe for raw SQL
     // Record it
-    await sql`INSERT INTO migrations (id, name) VALUES (${id}, ${name})`;
+    await bunSql`INSERT INTO migrations (id, name, hash) VALUES (${id}, ${name}, ${hash})`;
   } else {
     await bunSql.begin(async (sql) => {
       // Execute the migration SQL
       await sql.unsafe(content); // Use unsafe for raw SQL
       // Record it
-      await sql`INSERT INTO migrations (id, name) VALUES (${id}, ${name})`;
+      await sql`INSERT INTO migrations (id, name, hash) VALUES (${id}, ${name}, ${hash})`;
     });
   }
   console.log(`✓ Migrated ${name}`);
+};
+
+const checkFileHash = async ({ id, fileName, content, bunSql }) => {
+  const [{ hash }] = await bunSql`SELECT hash from migrations where id = ${id}`;
+  if (hash !== createHash(content)) {
+    throw new Error(
+      `Migration files should be immutable, they should not change. '${fileName}' has changed.`
+    );
+  }
 };
 
 const migrate = async ({
@@ -36,8 +53,9 @@ const migrate = async ({
   includes = "**/*.sql",
   connectionString,
 }) => {
+  console.log(migrationDir, includes, connectionString);
   // Initialize Bun's SQL client
-  const bunSql = connectionString ? sql(connectionString) : sql;
+  const bunSql = connectionString ? new SQL(connectionString) : new SQL();
   await ensureTable(bunSql);
 
   // Get all SQL files
@@ -56,13 +74,17 @@ const migrate = async ({
 
   let lastId = await getLastExecuted(bunSql);
   for (const { id, fileName } of files) {
-    if (lastId >= id) continue;
+    const content = await Bun.file(`${migrationDir}/${fileName}`).text();
+
+    if (lastId >= id) {
+      await checkFileHash({ id, fileName, content, bunSql });
+      continue;
+    }
     if (id > lastId + 1)
       throw new Error(
         `Migration file names must be sequential. Missing ${lastId + 1}`
       );
 
-    const content = await Bun.file(`${migrationDir}/${fileName}`).text();
     await up({ id, name: fileName, content, bunSql });
     lastId = id;
   }

@@ -57,17 +57,8 @@ const migrate = async ({
   includes = "**/*.sql",
   connectionString,
 }) => {
-  console.log(migrationDir, includes, connectionString);
   // Initialize Bun's SQL client
   const bunSql = connectionString ? new SQL(connectionString) : new SQL();
-
-  const txStatus = await bunSql`
-  SELECT 
-    current_setting('transaction_isolation') as isolation,
-    txid_current_if_assigned() as current_txid,
-    pg_backend_pid() as backend_pid
-`;
-  console.log("Transaction status:", txStatus[0]);
 
   await ensureTable(bunSql);
 

@@ -1,0 +1,25 @@
+{
+  "name": "bun-migrate",
+  "module": "index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "bin": {
+    "bun-migrate": "./cli.js"
+  },
+  "files": [
+    "index.js",
+    "cli.js",
+    "README.md"
+  ],
+  "scripts": {
+    "lint": "bun run --bun biome check --fix"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

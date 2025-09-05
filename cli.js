@@ -22,7 +22,7 @@ async function cli() {
     console.log(`
 Bun Migration Tool
 
-Assumes bun.sh environment variables to connect to correct database. 
+Assumes bun.sh environment variables to connect to correct database or connectionOptions which can simply be a connection string.
 Usage: bunx bun-migrate up [options]
 
 Commands:
@@ -30,7 +30,7 @@ Commands:
   help   
 
 Options:
-  connectionString: { type: "string", short: "c" },
+  connectionOptions: { type: "string", short: "c" },
   includes: { type: "string", short: "i" },
   migrationDir: { type: "string", short: "d" },
 `);

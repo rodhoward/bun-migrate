@@ -1,6 +1,6 @@
 {
   "name": "bun-migrate",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "module": "index.js",
   "type": "module",
   "exports": {

@@ -57,10 +57,10 @@ const checkFileHash = async ({ id, fileName, content, bunSql }) => {
 const migrate = async ({
   migrationDir = "./migrations",
   includes = "**/*.sql",
-  connectionString,
+  connectionOptions,
 }) => {
   // Initialize Bun's SQL client
-  const bunSql = connectionString ? new SQL(connectionString) : new SQL();
+  const bunSql = connectionOptions ? new SQL(connectionOptions) : new SQL();
 
   try {
     const [result] =

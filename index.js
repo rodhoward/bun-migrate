@@ -1,5 +1,7 @@
 import { SQL } from "bun";
 
+const BUN_MIGRATE_LOCK_ID = process.env.BUN_MIGRATE_LOCK_ID || 765432;
+
 const createHash = (content) => {
   const hasher = new Bun.CryptoHasher("sha256");
   hasher.update(content);
@@ -60,40 +62,57 @@ const migrate = async ({
   // Initialize Bun's SQL client
   const bunSql = connectionString ? new SQL(connectionString) : new SQL();
 
-  await ensureTable(bunSql);
-
-  // Get all SQL files
-  const glob = new Bun.Glob(includes);
-  const files = Array.from(glob.scanSync(migrationDir))
-    .sort()
-    .map((file) => {
-      const id = file.match(/^\d+(-_ )*/)?.[0];
-      if (!Number.isInteger(+id)) {
-        throw new Error(
-          `Migration file names must start with their simple sequence number. Not '${file}'`
-        );
-      }
-      return { id: Number.parseInt(id), fileName: file };
-    });
-
-  let lastId = await getLastExecuted(bunSql);
-  for (const { id, fileName } of files) {
-    const content = await Bun.file(`${migrationDir}/${fileName}`).text();
-
-    if (lastId >= id) {
-      await checkFileHash({ id, fileName, content, bunSql });
-      continue;
+  try {
+    const [result] =
+      await bunSql`SELECT pg_try_advisory_lock(${BUN_MIGRATE_LOCK_ID})`;
+    if (!result.pg_try_advisory_lock) {
+      console.log("Another instance is running migrations, waiting...");
+      // This BLOCKS until the other instance releases the lock
+      await sql`SELECT pg_advisory_lock(${BUN_MIGRATE_LOCK_ID})`;
+      // Once we get here, migrations are done, so immediately release
+      await sql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
+      return;
     }
-    if (id > lastId + 1)
-      throw new Error(
-        `Migration file names must be sequential. Missing ${lastId + 1}`
-      );
 
-    await up({ id, name: fileName, content, bunSql });
-    lastId = id;
+    console.log("Migrations started..");
+    await ensureTable(bunSql);
+
+    // Get all SQL files
+    const glob = new Bun.Glob(includes);
+    const files = Array.from(glob.scanSync(migrationDir))
+      .sort()
+      .map((file) => {
+        const id = file.match(/^\d+(-_ )*/)?.[0];
+        if (!Number.isInteger(+id)) {
+          throw new Error(
+            `Migration file names must start with their simple sequence number. Not '${file}'`
+          );
+        }
+        return { id: Number.parseInt(id), fileName: file };
+      });
+
+    let lastId = await getLastExecuted(bunSql);
+    for (const { id, fileName } of files) {
+      const content = await Bun.file(`${migrationDir}/${fileName}`).text();
+
+      if (lastId >= id) {
+        await checkFileHash({ id, fileName, content, bunSql });
+        continue;
+      }
+      if (id > lastId + 1)
+        throw new Error(
+          `Migration file names must be sequential. Missing ${lastId + 1}`
+        );
+
+      await up({ id, name: fileName, content, bunSql });
+      lastId = id;
+    }
+    let finalId = await getLastExecuted(bunSql);
+    console.log(`Migrations complete. Last migration id: ${finalId}`);
+  } finally {
+    // unlock
+    await sql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
   }
-  let finalId = await getLastExecuted(bunSql);
-  console.log(`Migrations complete. Last migration id: ${finalId}`);
 };
 
 export { migrate };

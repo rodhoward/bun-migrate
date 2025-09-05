@@ -68,9 +68,9 @@ const migrate = async ({
     if (!result.pg_try_advisory_lock) {
       console.log("Another instance is running migrations, waiting...");
       // This BLOCKS until the other instance releases the lock
-      await sql`SELECT pg_advisory_lock(${BUN_MIGRATE_LOCK_ID})`;
+      await bunSql`SELECT pg_advisory_lock(${BUN_MIGRATE_LOCK_ID})`;
       // Once we get here, migrations are done, so immediately release
-      await sql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
+      await bunSql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
       return;
     }
 
@@ -110,8 +110,7 @@ const migrate = async ({
     let finalId = await getLastExecuted(bunSql);
     console.log(`Migrations complete. Last migration id: ${finalId}`);
   } finally {
-    // unlock
-    await sql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
+    await bunSql`SELECT pg_advisory_unlock(${BUN_MIGRATE_LOCK_ID})`;
   }
 };
 
